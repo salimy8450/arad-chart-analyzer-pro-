@@ -1,1 +1,1 @@
-# arad-chart-analyzer-pro-
+# arad-chart-analyzer-pro-ARAD CHART ANALYZER PRO
