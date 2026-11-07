@@ -56,19 +56,23 @@ export default function Home() {
   }
 
   async function prepareChartImage(sourceFile) {
-    // Decode with the browser's EXIF orientation handling, then normalize to a standard JPEG.
-    // This prevents phone-camera metadata from making a correctly oriented chart appear rotated.
-    if (typeof createImageBitmap === "function") {
-      const bitmap = await createImageBitmap(sourceFile, { imageOrientation: "from-image" });
-      const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("آماده‌سازی تصویر ممکن نشد؛ یک تصویر دیگر امتحان کن.");
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close?.();
-      return canvas.toDataURL("image/jpeg", 0.94);
+    // Normalize EXIF orientation when the browser supports it.
+    // If decoding fails on an older phone, safely fall back to the original file.
+    try {
+      if (typeof createImageBitmap === "function") {
+        const bitmap = await createImageBitmap(sourceFile, { imageOrientation: "from-image" });
+        const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("آماده‌سازی تصویر ممکن نشد.");
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close?.();
+        return canvas.toDataURL("image/jpeg", 0.94);
+      }
+    } catch (err) {
+      console.warn("Image normalization fallback:", err);
     }
     return await new Promise((resolve,reject)=>{
       const reader=new FileReader();
