@@ -3,10 +3,21 @@ import { verifySession, reserveDailyAnalysis, releaseDailyAnalysis } from "../..
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const instructions = `تو تحلیل‌گر تکنیکال محتاط ARAD CHART ANALYZER PRO هستی. فقط شواهد قابل مشاهده در تصویر را تحلیل کن؛ به قیمت زنده دسترسی نداری. اندیکاتوری را که در تصویر دیده نمی‌شود فرض نکن. اگر محور قیمت یا ساختار نمودار واضح نیست، تصمیم WAIT بده و عدد نساز.
-decision فقط LONG یا SHORT یا WAIT باشد. confidence از ۰ تا ۱۰۰ فقط وضوح شواهد تصویری است و احتمال موفقیت نیست. اگر confidence کمتر از ۶۵ است، تصمیم WAIT بده. Entry و SL و اهداف فقط وقتی تعیین شوند که مقیاس قیمت به‌وضوح قابل خواندن باشد. تارگت‌ها در جهت معامله و به ترتیب باشند. پاسخ فقط JSON معتبر با این کلیدها باشد:
-{"decision":"WAIT","symbol":"نامشخص","timeframe":"نامشخص","confidence":0,"entry":"قابل تعیین نیست","stop_loss":"قابل تعیین نیست","targets":[],"risk_reward":"نامشخص","trend":"نامشخص","reasons":[],"invalidation":"نامشخص","caution":"این تحلیل آموزشی است و تضمین سود نیست."}
-متن فارسی باشد؛ مقادیر decision انگلیسی بماند.`;
+const instructions = `تو تحلیل‌گر تکنیکال تصویری ARAD هستی. فقط چیزهایی را گزارش کن که واقعاً در تصویر قابل مشاهده‌اند. به قیمت زنده، داده بازار، دفتر سفارش یا اطلاعات بیرون از تصویر دسترسی نداری.
+
+قواعد حیاتی خواندن تصویر:
+1) ابتدا خود تصویر را از نظر جهت، وضوح، برش‌خوردگی و قابل‌خواندن بودن محور قیمت و زمان بررسی کن. تصویر عمودی موبایل به‌خودی‌خود چرخیده نیست. فقط اگر نوشته‌ها/محورها واقعاً ۹۰ یا ۱۸۰ درجه خوابیده‌اند بگو چرخیده؛ در غیر این صورت orientation="عادی" یا "نامشخص".
+2) اگر کندل‌ها، محور قیمت یا نوشته‌ها واضح نیستند، دلیل دقیق را بنویس و WAIT بده. هرگز از روی حدس بگو تصویر چرخیده است.
+3) نماد و تایم‌فریم ارسالی کاربر را به‌عنوان ورودی در نظر بگیر؛ اگر با نوشته قابل‌مشاهده تصویر تعارض دارد، تعارض را ذکر کن.
+4) اندیکاتورها را فقط وقتی در تصویر قابل مشاهده‌اند بررسی کن. اگر EMA/RSI/MACD/حجم نمایش داده نشده، مقدار یا وضعیت آن را حدس نزن و در visible_indicators نیاور.
+5) ابتدا ساختار سقف و کف، جهت و قدرت روند، نواحی حمایت/مقاومت و سپس نشانه‌های مومنتوم را ارزیابی کن. برای LONG یا SHORT حداقل دو شاهد مستقل و هم‌جهت لازم است؛ صرف یک کندل یا یک اندیکاتور کافی نیست.
+6) confidence فقط میزان وضوح و هم‌خوانی شواهد قابل مشاهده از ۰ تا ۱۰۰ است و احتمال برد معامله نیست. اگر کمتر از ۷۰ است، حتماً WAIT بده.
+7) Entry، Stop Loss و تارگت فقط وقتی مجازند که مقیاس قیمت و ناحیه ورود از تصویر واقعاً قابل خواندن باشد. عدد نساز. برای معامله فعال نسبت سود به ضرر کمتر از ۱.۵ قابل قبول نیست؛ در این حالت WAIT بده.
+8) اگر اطلاعات کافی نیست، WAIT بهترین پاسخ است. از توصیه قطعی و تضمین سود خودداری کن.
+
+فقط یک JSON معتبر با همین کلیدها برگردان:
+{"decision":"WAIT","symbol":"نامشخص","timeframe":"نامشخص","confidence":0,"chart_quality":"نامشخص","orientation":"نامشخص","chart_type":"نامشخص","visible_indicators":[],"trend":"نامشخص","market_structure":"نامشخص","entry":"قابل تعیین نیست","stop_loss":"قابل تعیین نیست","targets":[],"risk_reward":"نامشخص","reasons":[],"invalidation":"نامشخص","caution":"تحلیل آموزشی است؛ وضوح شواهد به معنی احتمال موفقیت نیست و تضمین سود وجود ندارد."}
+مقادیر decision فقط LONG یا SHORT یا WAIT باشند. متن توضیحات فارسی باشد. هیچ متن یا Markdown خارج از JSON ننویس.`;
 
 export async function POST(req) {
   if (!verifySession(req)) return Response.json({ error: "برای تحلیل ابتدا با رمز شخصی وارد شو." }, { status: 401 });
@@ -41,13 +52,13 @@ export async function POST(req) {
         messages:[
           {role:"system",content:instructions},
           {role:"user",content:[
-            {type:"text",text:`نماد: ${symbol||"نامشخص"}؛ تایم‌فریم انتخابی: ${timeframe}. چارت را بررسی کن و فقط JSON معتبر برگردان.`},
+            {type:"text",text:`نماد واردشده توسط کاربر: ${symbol||"نامشخص"}؛ تایم‌فریم انتخابی: ${timeframe}. تصویر را با قواعد بالا بررسی کن. اگر شواهد کافی نیست فقط WAIT بده. فقط JSON معتبر برگردان.`},
             {type:"image_url",image_url:{url:imageData}}
           ]}
         ],
         response_format:{type:"json_object"},
-        temperature:0.2,
-        max_completion_tokens:1100,
+        temperature:0.1,
+        max_completion_tokens:1600,
         stream:false
       })
     });
@@ -59,7 +70,7 @@ export async function POST(req) {
       console.error("Groq error",upstream.status,data?.error?.message||data);
       const detail = upstream.status===429
         ? "سهمیه رایگان موقتاً پر شده است؛ کمی بعد دوباره تلاش کن. سهمیه سایت بازگردانده شد."
-        : "موتور تحلیل رایگان پاسخ نداد؛ کلید Groq و وضعیت سرویس را بررسی کن. سهمیه این تلاش بازگردانده شد.";
+        : "موتور تحلیل پاسخ نداد؛ کلید Groq و وضعیت سرویس را بررسی کن. سهمیه این تلاش بازگردانده شد.";
       return Response.json({error:detail},{status:502});
     }
 
@@ -75,10 +86,20 @@ export async function POST(req) {
     if(!["LONG","SHORT","WAIT"].includes(analysis.decision)) analysis.decision="WAIT";
     if(!Array.isArray(analysis.targets)) analysis.targets=[];
     if(!Array.isArray(analysis.reasons)) analysis.reasons=[];
+    if(!Array.isArray(analysis.visible_indicators)) analysis.visible_indicators=[];
+    const confidence=Number(analysis.confidence);
+    analysis.confidence=Number.isFinite(confidence)?Math.max(0,Math.min(100,Math.round(confidence))):0;
+    if(analysis.confidence<70) analysis.decision="WAIT";
     if(analysis.decision==="WAIT") {
       analysis.entry="فعلاً ورود نکن";
+      analysis.stop_loss="قابل تعیین نیست";
       analysis.targets=[];
+      analysis.risk_reward="نامشخص";
     }
+    analysis.symbol=analysis.symbol||symbol||"نامشخص";
+    analysis.timeframe=analysis.timeframe||timeframe;
+    analysis.chart_quality=analysis.chart_quality||"نامشخص";
+    analysis.orientation=analysis.orientation||"نامشخص";
     return Response.json({analysis,remaining:Math.max(0,3-count)});
   } catch(e) {
     if(reserved) {
